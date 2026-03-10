@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>LocalFileHub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f; --surface: #12121a; --surface2: #1a1a26;
+    --border: #2a2a3d; --accent: #7c6aff; --accent2: #ff6a9e;
+    --text: #e8e8f0; --text2: #8888aa; --text3: #55556a;
+    --green: #4ade80; --red: #ff5f7a; --yellow: #fbbf24;
+    --radius: 14px; --radius-sm: 8px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'Syne', sans-serif; overflow: hidden; }
+
+  /* ── Layout ── */
+  #app { display: flex; flex-direction: column; height: 100dvh; }
+  header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px 12px; border-bottom: 1px solid var(--border); background: var(--bg); flex-shrink: 0; }
+  .logo { font-size: 20px; font-weight: 800; letter-spacing: -0.5px; }
+  .logo span { color: var(--accent); }
+
+  /* ── Tabs ── */
+  .tabs { display: flex; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .tab { flex: 1; padding: 12px 4px; text-align: center; font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: var(--text3); cursor: pointer; border-bottom: 2px solid transparent; transition: all .2s; }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-icon { font-size: 18px; display: block; margin-bottom: 2px; }
+
+  /* ── Pages ── */
+  .page { flex: 1; overflow-y: auto; padding: 16px; display: none; }
+  .page.active { display: block; }
+
+  /* ── Search ── */
+  .search-bar { display: flex; gap: 8px; margin-bottom: 16px; }
+  .search-wrap { flex: 1; position: relative; }
+  .search-wrap input { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px 10px 38px; color: var(--text); font-family: 'DM Mono', monospace; font-size: 13px; outline: none; transition: border .2s; }
+  .search-wrap input:focus { border-color: var(--accent); }
+  .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text3); font-size: 14px; pointer-events: none; }
+
+  /* ── Chips ── */
+  .chips { display: flex; gap: 8px; overflow-x: auto; margin-bottom: 16px; padding-bottom: 4px; }
+  .chips::-webkit-scrollbar { display: none; }
+  .chip { flex-shrink: 0; padding: 5px 12px; border-radius: 99px; background: var(--surface); border: 1px solid var(--border); font-size: 12px; font-weight: 600; color: var(--text2); cursor: pointer; transition: all .15s; }
+  .chip.active { background: rgba(124,106,255,.15); border-color: var(--accent); color: var(--accent); }
+  .chip.tag-chip { color: var(--accent2); border-color: rgba(255,106,158,.3); background: rgba(255,106,158,.07); }
+  .chip.tag-chip.active { background: rgba(255,106,158,.2); border-color: var(--accent2); }
+
+  /* ── File cards ── */
+  .files-grid { display: flex; flex-direction: column; gap: 10px; }
+  .file-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; display: flex; gap: 12px; align-items: flex-start; transition: border-color .15s; cursor: pointer; position: relative; overflow: hidden; }
+  .file-card:active { border-color: var(--accent); }
+
+  /* Thumbnail in card */
+  .file-thumb {
+    width: 52px; height: 52px; border-radius: var(--radius-sm);
+    background: var(--surface2); display: flex; align-items: center; justify-content: center;
+    font-size: 24px; flex-shrink: 0; overflow: hidden;
+  }
+  .file-thumb img { width: 100%; height: 100%; object-fit: cover; border-radius: var(--radius-sm); }
+
+  .file-info { flex: 1; min-width: 0; }
+  .file-name { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 3px; }
+  .file-meta { font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace; margin-bottom: 5px; }
+  .file-folder { font-size: 11px; color: var(--text2); margin-bottom: 4px; }
+  .file-folder span { background: var(--surface2); padding: 2px 8px; border-radius: 4px; }
+  .file-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+  .ftag { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 99px; background: rgba(255,106,158,.1); color: var(--accent2); letter-spacing: 0.3px; }
+  .file-actions { display: flex; gap: 6px; flex-shrink: 0; align-self: center; }
+  .btn-sm { width: 32px; height: 32px; border-radius: var(--radius-sm); background: var(--surface2); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 14px; cursor: pointer; color: var(--text2); transition: all .15s; }
+  .btn-sm:active { transform: scale(0.92); }
+  .btn-sm.download:active { background: rgba(74,222,128,.15); border-color: var(--green); color: var(--green); }
+
+  /* ── Empty ── */
+  .empty { text-align: center; padding: 48px 24px; }
+  .empty-icon { font-size: 48px; margin-bottom: 12px; opacity: .4; }
+  .empty p { color: var(--text3); font-size: 14px; }
+
+  /* ── Upload zone ── */
+  .upload-zone { border: 2px dashed var(--border); border-radius: var(--radius); padding: 32px 20px; text-align: center; margin-bottom: 20px; cursor: pointer; transition: all .2s; background: var(--surface); }
+  .upload-zone.drag { border-color: var(--accent); background: rgba(124,106,255,.08); }
+  .upload-zone-icon { font-size: 40px; margin-bottom: 8px; }
+  .upload-zone p { color: var(--text2); font-size: 14px; }
+  .upload-zone small { color: var(--text3); font-size: 12px; font-family: 'DM Mono', monospace; }
+
+  /* ── Upload previews ── */
+  .upload-previews { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px; }
+  .up-prev-item { position: relative; border-radius: var(--radius-sm); overflow: hidden; background: var(--surface); border: 1px solid var(--border); }
+  .up-prev-item img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
+  .up-prev-file { display: flex; align-items: center; gap: 8px; padding: 8px 10px; }
+  .up-prev-icon { font-size: 20px; flex-shrink: 0; }
+  .up-prev-name { font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; color: var(--text2); }
+  .up-prev-remove { position: absolute; top: 4px; right: 4px; width: 20px; height: 20px; border-radius: 50%; background: rgba(0,0,0,.7); border: none; color: white; font-size: 11px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+
+  /* ── Form ── */
+  .form-group { margin-bottom: 14px; }
+  label { display: block; font-size: 12px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: var(--text3); margin-bottom: 6px; }
+  input[type="text"], select, textarea { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; color: var(--text); font-family: 'DM Mono', monospace; font-size: 13px; outline: none; transition: border .2s; appearance: none; }
+  input[type="text"]:focus, select:focus { border-color: var(--accent); }
+  select option { background: var(--surface2); }
+
+  /* ── Buttons ── */
+  .btn { width: 100%; padding: 13px; border-radius: var(--radius); font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; letter-spacing: 0.4px; cursor: pointer; border: none; transition: all .15s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-primary:active { background: #6a58ee; transform: scale(0.98); }
+  .btn-primary:disabled { opacity: .4; pointer-events: none; }
+  .btn-danger { background: rgba(255,95,122,.15); color: var(--red); border: 1px solid rgba(255,95,122,.3); }
+  .btn-outline { background: transparent; color: var(--text2); border: 1px solid var(--border); }
+  .btn-icon { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; color: var(--text2); font-size: 18px; cursor: pointer; flex-shrink: 0; transition: all .15s; }
+
+  /* ── Progress ── */
+  .upload-progress { margin-top: 14px; display: none; }
+  .progress-bar { height: 4px; background: var(--surface2); border-radius: 99px; overflow: hidden; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: 99px; transition: width .3s; width: 0%; }
+  .progress-label { font-size: 12px; color: var(--text3); margin-top: 6px; font-family: 'DM Mono', monospace; text-align: center; }
+
+  /* ── Folders ── */
+  .folders-grid { display: flex; flex-direction: column; gap: 10px; }
+  .folder-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; display: flex; align-items: center; gap: 14px; transition: border-color .15s; }
+  .folder-card-icon { font-size: 28px; }
+  .folder-card-info { flex: 1; }
+  .folder-card-name { font-size: 15px; font-weight: 700; margin-bottom: 2px; }
+  .folder-card-count { font-size: 12px; color: var(--text3); font-family: 'DM Mono', monospace; }
+  .folder-card-actions { display: flex; gap: 6px; }
+
+  /* ── Modal ── */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.75); backdrop-filter: blur(4px); display: flex; align-items: flex-end; justify-content: center; z-index: 100; opacity: 0; pointer-events: none; transition: opacity .2s; }
+  .modal-overlay.open { opacity: 1; pointer-events: all; }
+  .modal { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius) var(--radius) 0 0; width: 100%; max-width: 600px; padding: 20px; transform: translateY(100%); transition: transform .3s cubic-bezier(.16,1,.3,1); max-height: 90dvh; overflow-y: auto; }
+  .modal-overlay.open .modal { transform: translateY(0); }
+  .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+  .modal-title { font-size: 17px; font-weight: 700; }
+  .modal-close { width: 30px; height: 30px; border-radius: 50%; background: var(--surface2); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 14px; color: var(--text2); }
+
+  /* ── Edit modal image preview ── */
+  .edit-preview-wrap { width: 100%; border-radius: var(--radius-sm); overflow: hidden; margin-bottom: 16px; background: var(--surface2); border: 1px solid var(--border); display: none; cursor: pointer; position: relative; }
+  .edit-preview-wrap img { width: 100%; max-height: 220px; object-fit: contain; display: block; }
+  .edit-preview-label { position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,.6); border-radius: 6px; padding: 3px 8px; font-size: 11px; color: var(--text2); }
+
+  /* ── Lightbox ── */
+  .lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.95); z-index: 300; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity .25s; }
+  .lightbox.open { opacity: 1; pointer-events: all; }
+  .lightbox img { max-width: 100%; max-height: 100dvh; object-fit: contain; padding: 16px; }
+  .lightbox-close { position: absolute; top: 16px; right: 16px; width: 36px; height: 36px; border-radius: 50%; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.2); color: white; font-size: 18px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .lightbox-name { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,.7); border-radius: 99px; padding: 6px 16px; font-size: 12px; color: var(--text2); white-space: nowrap; max-width: 90%; overflow: hidden; text-overflow: ellipsis; font-family: 'DM Mono', monospace; }
+
+  /* ── Tags input ── */
+  .tags-input-row { display: flex; gap: 6px; align-items: flex-start; }
+  .tags-input-wrap { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px; min-height: 44px; display: flex; flex-wrap: wrap; gap: 6px; cursor: text; transition: border .2s; }
+  .tags-input-wrap:focus-within { border-color: var(--accent); }
+  .tag-pill { display: flex; align-items: center; gap: 4px; background: rgba(255,106,158,.12); border: 1px solid rgba(255,106,158,.3); color: var(--accent2); border-radius: 99px; padding: 3px 10px; font-size: 12px; font-weight: 700; }
+  .tag-pill button { background: none; border: none; cursor: pointer; color: var(--accent2); font-size: 14px; padding: 0; line-height: 1; opacity: .7; }
+  .tags-input { border: none; outline: none; background: transparent; color: var(--text); font-family: 'DM Mono', monospace; font-size: 13px; flex: 1; min-width: 80px; padding: 2px 4px; }
+  .tag-add-btn { flex-shrink: 0; width: 44px; height: 44px; border-radius: var(--radius-sm); background: rgba(255,106,158,.12); border: 1px solid rgba(255,106,158,.3); color: var(--accent2); font-size: 22px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all .15s; }
+  .tag-add-btn:active { background: rgba(255,106,158,.25); transform: scale(0.93); }
+  .tag-suggestions { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .tag-suggestion { font-size: 11px; padding: 3px 10px; border-radius: 99px; background: var(--surface2); border: 1px solid var(--border); color: var(--text3); cursor: pointer; transition: all .15s; }
+  .tag-suggestion:active { border-color: var(--accent2); color: var(--accent2); }
+
+  /* ── Toast ── */
+  .toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 10px 18px; border-radius: 99px; font-size: 13px; font-weight: 600; white-space: nowrap; z-index: 200; opacity: 0; transition: all .3s; pointer-events: none; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast.success { border-color: var(--green); color: var(--green); }
+  .toast.error { border-color: var(--red); color: var(--red); }
+
+  /* ── Misc ── */
+  .count-badge { display: inline-flex; align-items: center; justify-content: center; background: var(--surface2); border: 1px solid var(--border); border-radius: 99px; font-size: 11px; font-family: 'DM Mono', monospace; color: var(--text3); padding: 2px 8px; margin-left: 6px; }
+  .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .section-title { font-size: 16px; font-weight: 700; }
+
+  /* ── Grid view (files tab) ── */
+  .files-grid.grid-view { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .files-grid.grid-view .file-card { flex-direction: column; padding: 0; gap: 0; align-items: stretch; border-radius: var(--radius-sm); }
+  .files-grid.grid-view .file-thumb { width: 100%; padding-bottom: 100%; border-radius: var(--radius-sm) var(--radius-sm) 0 0; position: relative; height: 0; }
+  .files-grid.grid-view .file-thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
+  .files-grid.grid-view .file-info { padding: 6px 8px; }
+  .files-grid.grid-view .file-name { font-size: 11px; margin-bottom: 0; }
+  .files-grid.grid-view .file-meta,
+  .files-grid.grid-view .file-folder,
+  .files-grid.grid-view .file-tags,
+  .files-grid.grid-view .file-actions { display: none; }
+
+  /* ── Folder detail ── */
+  .folder-detail { display: none; }
+  .folder-detail.active { display: block; }
+  .folder-detail-header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+  .btn-back { width: 36px; height: 36px; border-radius: var(--radius-sm); background: var(--surface); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 22px; cursor: pointer; flex-shrink: 0; color: var(--text2); }
+  .folder-detail-title { font-size: 18px; font-weight: 800; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .folder-stat-bar { display: flex; gap: 10px; margin-bottom: 16px; }
+  .folder-stat { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; }
+  .folder-stat-value { font-size: 20px; font-weight: 800; color: var(--accent); }
+  .folder-stat-label { font-size: 11px; color: var(--text3); margin-top: 2px; font-family: 'DM Mono', monospace; }
+  .folder-upload-btn { display: flex; align-items: center; justify-content: center; gap: 8px; background: rgba(124,106,255,.1); border: 1px dashed var(--accent); border-radius: var(--radius); padding: 12px; color: var(--accent); font-weight: 700; font-size: 14px; cursor: pointer; margin-bottom: 16px; transition: all .15s; }
+  .folder-upload-btn:active { background: rgba(124,106,255,.2); }
+
+  /* ── Detail grid view ── */
+  .detail-view-bar { display: flex; align-items: center; gap: 6px; margin-bottom: 12px; }
+  .detail-view-bar span { font-size: 11px; color: var(--text3); font-weight: 700; letter-spacing: .5px; text-transform: uppercase; margin-right: 4px; }
+  .view-btn { padding: 5px 12px; border-radius: var(--radius-sm); background: var(--surface); border: 1px solid var(--border); font-size: 12px; font-weight: 700; color: var(--text2); cursor: pointer; transition: all .15s; }
+  .view-btn.active { background: rgba(124,106,255,.15); border-color: var(--accent); color: var(--accent); }
+  #detail-files-list.cols3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 5px; }
+  #detail-files-list.cols5 { display: grid; grid-template-columns: repeat(5,1fr); gap: 4px; }
+  #detail-files-list.cols3 .file-card,
+  #detail-files-list.cols5 .file-card { flex-direction: column; padding: 0; gap: 0; align-items: stretch; border-radius: var(--radius-sm); }
+  #detail-files-list.cols3 .file-thumb,
+  #detail-files-list.cols5 .file-thumb { width: 100%; padding-bottom: 100%; border-radius: var(--radius-sm) var(--radius-sm) 0 0; position: relative; height: 0; }
+  #detail-files-list.cols3 .file-thumb img,
+  #detail-files-list.cols5 .file-thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
+  #detail-files-list.cols3 .file-info,
+  #detail-files-list.cols5 .file-info { padding: 4px 6px; }
+  #detail-files-list.cols3 .file-name { font-size: 10px; margin-bottom: 0; }
+  #detail-files-list.cols5 .file-name { font-size: 9px; margin-bottom: 0; }
+  #detail-files-list.cols3 .file-meta,
+  #detail-files-list.cols5 .file-meta,
+  #detail-files-list.cols3 .file-folder,
+  #detail-files-list.cols5 .file-folder,
+  #detail-files-list.cols3 .file-tags,
+  #detail-files-list.cols5 .file-tags,
+  #detail-files-list.cols3 .file-actions,
+  #detail-files-list.cols5 .file-actions { display: none; }
+
+  /* ── Move file modal ── */
+  .move-folder-list { display: flex; flex-direction: column; gap: 8px; max-height: 50dvh; overflow-y: auto; }
+  .move-folder-item { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; transition: all .15s; font-size: 14px; font-weight: 600; }
+  .move-folder-item:active { border-color: var(--accent); background: rgba(124,106,255,.1); }
+  .move-folder-item.current { opacity: .4; pointer-events: none; }
+
+  @media(min-width: 600px) {
+    .files-grid { grid-template-columns: repeat(2,1fr); display: grid; }
+    .files-grid.grid-view { grid-template-columns: repeat(4,1fr); }
+    .upload-previews { grid-template-columns: repeat(4,1fr); }
+    .modal { border-radius: var(--radius); margin-bottom: 40px; }
+    .modal-overlay { align-items: center; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="logo">Local<span>File</span>Hub</div>
+    <div style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;">🟢 local</div>
+  </header>
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('files')"><span class="tab-icon">📁</span>Archivos</div>
+    <div class="tab" onclick="switchTab('upload')"><span class="tab-icon">⬆️</span>Subir</div>
+    <div class="tab" onclick="switchTab('folders')"><span class="tab-icon">🗂️</span>Carpetas</div>
+  </div>
+
+  <!-- ═══ FILES ═══ -->
+  <div class="page active" id="page-files">
+    <div class="search-bar">
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="search-input" placeholder="Buscar por nombre, #hashtag..." oninput="debounceSearch()">
+      </div>
+    </div>
+    <div class="chips" id="folder-chips"></div>
+    <div class="chips" id="tag-chips"></div>
+    <div class="section-header">
+      <div class="section-title">Archivos <span class="count-badge" id="file-count">0</span></div>
+      <div class="btn-icon" id="view-toggle" onclick="toggleView()" title="Cambiar vista" style="width:36px;height:36px;font-size:18px;">⊞</div>
+    </div>
+    <div class="files-grid" id="files-list">
+      <div class="empty"><div class="empty-icon">📭</div><p>No hay archivos aún</p></div>
+    </div>
+  </div>
+
+  <!-- ═══ UPLOAD ═══ -->
+  <div class="page" id="page-upload">
+    <div class="upload-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+      <div class="upload-zone-icon">📤</div>
+      <p>Toca para seleccionar archivos</p>
+      <small>o arrastra y suelta aquí</small>
+    </div>
+    <input type="file" id="file-input" multiple style="display:none" onchange="handleFileSelect(this.files)">
+
+    <div id="upload-previews-wrap" style="display:none; margin-bottom:14px;">
+      <label>Vista previa</label>
+      <div class="upload-previews" id="upload-previews"></div>
+    </div>
+
+    <div class="form-group">
+      <label>Carpeta</label>
+      <select id="upload-folder"><option value="">Sin carpeta</option></select>
+    </div>
+    <div class="form-group">
+      <label>Hashtags</label>
+      <div class="tags-input-row">
+        <div class="tags-input-wrap" id="upload-tags-wrap" onclick="document.getElementById('upload-tag-input').focus()">
+          <input class="tags-input" id="upload-tag-input" placeholder="#etiqueta y toca +" onkeydown="handleTagInput(event,'upload')" onkeyup="handleTagKeyup(event,'upload')" oninput="handleTagOninput(event,'upload')">
+        </div>
+        <div class="tag-add-btn" onclick="confirmTagInput('upload')" title="Añadir tag">＋</div>
+      </div>
+      <div class="tag-suggestions" id="upload-tag-suggestions"></div>
+    </div>
+
+    <div class="upload-progress" id="upload-progress">
+      <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+      <div class="progress-label" id="progress-label">Subiendo...</div>
+    </div>
+    <button class="btn btn-primary" id="upload-btn" onclick="uploadFiles()" disabled>⬆️ Subir archivos</button>
+  </div>
+
+  <!-- ═══ FOLDERS ═══ -->
+  <div class="page" id="page-folders">
+
+    <!-- Lista principal -->
+    <div id="folders-main">
+      <div class="section-header">
+        <div class="section-title">Carpetas</div>
+        <button class="btn-icon" onclick="openCreateFolder()" style="width:36px;height:36px;font-size:20px;">＋</button>
+      </div>
+      <div class="folders-grid" style="margin-bottom:10px;">
+        <div class="folder-card" onclick="openFolderDetail(null)" style="cursor:pointer;">
+          <div class="folder-card-icon">📥</div>
+          <div class="folder-card-info">
+            <div class="folder-card-name">Sin clasificar</div>
+            <div class="folder-card-count" id="unclassified-count">cargando...</div>
+          </div>
+          <div style="color:var(--text3);font-size:20px;margin-left:4px;">›</div>
+        </div>
+      </div>
+      <div class="folders-grid" id="folders-list">
+        <div class="empty"><div class="empty-icon">🗂️</div><p>No hay carpetas aún</p></div>
+      </div>
+    </div>
+
+    <!-- Detalle de carpeta -->
+    <div id="folders-detail" class="folder-detail">
+      <div class="folder-detail-header">
+        <div class="btn-back" onclick="closeFolderDetail()">‹</div>
+        <div class="folder-detail-title" id="detail-folder-name">Carpeta</div>
+        <div class="btn-icon" id="detail-rename-btn" onclick="openRenameCurrentFolder()" style="width:32px;height:32px;font-size:15px;">✏️</div>
+      </div>
+      <div class="folder-stat-bar">
+        <div class="folder-stat">
+          <div class="folder-stat-value" id="detail-file-count">—</div>
+          <div class="folder-stat-label">archivos</div>
+        </div>
+        <div class="folder-stat">
+          <div class="folder-stat-value" id="detail-folder-size">—</div>
+          <div class="folder-stat-label">en disco</div>
+        </div>
+      </div>
+      <div class="folder-upload-btn" id="detail-upload-btn" onclick="goToUploadInFolder()">
+        ⬆️ Subir a esta carpeta
+      </div>
+      <!-- View selector bar -->
+      <div class="detail-view-bar">
+        <span>Vista</span>
+        <div class="view-btn active" id="vbtn-list" onclick="setDetailView('list')">☰ Lista</div>
+        <div class="view-btn" id="vbtn-cols3" onclick="setDetailView('cols3')">⊞ 3 col</div>
+        <div class="view-btn" id="vbtn-cols5" onclick="setDetailView('cols5')">⋮⋮ 5 col</div>
+      </div>
+      <div class="files-grid" id="detail-files-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL: Edit file ═══ -->
+<div class="modal-overlay" id="modal-edit" onclick="closeModal('edit')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title">Editar archivo</div>
+      <div class="modal-close" onclick="closeModal('edit')">✕</div>
+    </div>
+    <!-- Image preview inside edit modal -->
+    <div class="edit-preview-wrap" id="edit-preview-wrap" onclick="openLightbox()">
+      <img id="edit-preview-img" src="" alt="">
+      <div class="edit-preview-label">Toca para ampliar</div>
+    </div>
+    <div class="form-group">
+      <label>Nombre</label>
+      <input type="text" id="edit-name">
+    </div>
+    <div class="form-group">
+      <label>Carpeta</label>
+      <select id="edit-folder"><option value="">Sin carpeta</option></select>
+    </div>
+    <div class="form-group">
+      <label>Hashtags</label>
+      <div class="tags-input-row">
+        <div class="tags-input-wrap" id="edit-tags-wrap" onclick="document.getElementById('edit-tag-input').focus()">
+          <input class="tags-input" id="edit-tag-input" placeholder="#etiqueta y toca +" onkeydown="handleTagInput(event,'edit')" onkeyup="handleTagKeyup(event,'edit')" oninput="handleTagOninput(event,'edit')">
+        </div>
+        <div class="tag-add-btn" onclick="confirmTagInput('edit')" title="Añadir tag">＋</div>
+      </div>
+      <div class="tag-suggestions" id="edit-tag-suggestions"></div>
+    </div>
+    <button class="btn btn-primary" onclick="saveEdit()" style="margin-bottom:10px;">💾 Guardar cambios</button>
+    <button class="btn btn-outline" onclick="openMoveModal()" style="margin-bottom:10px;">📂 Mover a carpeta</button>
+    <button class="btn btn-outline" onclick="downloadCurrentFile()" style="margin-bottom:10px;">⬇️ Descargar</button>
+    <button class="btn btn-danger" onclick="deleteFileFromModal()">🗑️ Eliminar archivo</button>
+  </div>
+</div>
+
+<!-- ═══ MODAL: Folder ═══ -->
+<div class="modal-overlay" id="modal-folder" onclick="closeModal('folder')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title" id="folder-modal-title">Nueva carpeta</div>
+      <div class="modal-close" onclick="closeModal('folder')">✕</div>
+    </div>
+    <div class="form-group">
+      <label>Nombre</label>
+      <input type="text" id="folder-name-input" placeholder="Ej: Proyectos, Fotos...">
+    </div>
+    <button class="btn btn-primary" onclick="saveFolder()">📁 Guardar</button>
+  </div>
+</div>
+
+<!-- ═══ MODAL: Move file ═══ -->
+<div class="modal-overlay" id="modal-move" onclick="closeModal('move')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title">Mover a carpeta</div>
+      <div class="modal-close" onclick="closeModal('move')">✕</div>
+    </div>
+    <div class="move-folder-list" id="move-folder-list"></div>
+  </div>
+</div>
+
+<!-- ═══ LIGHTBOX ═══ -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <div class="lightbox-close" onclick="closeLightbox()">✕</div>
+  <img id="lightbox-img" src="" alt="" onclick="event.stopPropagation()">
+  <div class="lightbox-name" id="lightbox-name"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── State ─────────────────────────────────────────────────────
+let state = {
+  files: [], folders: [], tags: [],
+  filterFolder: null, filterTag: null, searchQ: '',
+  editFileId: null, editFolderId: null,
+  uploadTags: [], editTags: [],
+  selectedFiles: [], selectedFilePreviews: []
+};
+let searchTimer;
+const IMAGE_TYPES = ['image/jpeg','image/png','image/gif','image/webp','image/svg+xml','image/bmp'];
+
+function isImage(mime='') { return IMAGE_TYPES.includes(mime); }
+
+// ── Init ──────────────────────────────────────────────────────
+async function init() {
+  await Promise.all([loadFolders(), loadTags()]);
+  await loadFiles();
+}
+
+// ── API ───────────────────────────────────────────────────────
+async function api(path, opts={}) {
+  const res = await fetch(path, opts);
+  if (!res.ok) { const e = await res.json().catch(()=>({error:'Error'})); throw new Error(e.error||'Error'); }
+  return res.json();
+}
+
+// ── Load data ─────────────────────────────────────────────────
+async function loadFolders() {
+  state.folders = await api('/api/folders');
+  renderFolderChips(); renderFolderSelects(); renderFoldersList();
+  updateUnclassifiedCount();
+}
+async function loadTags() {
+  state.tags = await api('/api/tags');
+  renderTagChips();
+}
+async function loadFiles() {
+  const p = new URLSearchParams();
+  if (state.searchQ) p.set('q', state.searchQ);
+  if (state.filterFolder === 'none') p.set('folder_id','none');
+  else if (state.filterFolder) p.set('folder_id', state.filterFolder);
+  if (state.filterTag) p.set('tag', state.filterTag);
+  state.files = await api('/api/files?' + p);
+  renderFiles();
+}
+
+// ── Helpers ───────────────────────────────────────────────────
+function fileIcon(mime='') {
+  if (isImage(mime)) return '🖼️';
+  if (mime.startsWith('video/')) return '🎬';
+  if (mime.startsWith('audio/')) return '🎵';
+  if (mime.includes('pdf')) return '📄';
+  if (mime.includes('zip')||mime.includes('rar')) return '🗜️';
+  if (mime.includes('word')||mime.includes('document')) return '📝';
+  if (mime.includes('sheet')||mime.includes('excel')) return '📊';
+  if (mime.includes('presentation')) return '📑';
+  if (mime.includes('text/')) return '📃';
+  return '📦';
+}
+function fmtSize(b) { if(b<1024) return b+' B'; if(b<1048576) return (b/1024).toFixed(1)+' KB'; return (b/1048576).toFixed(1)+' MB'; }
+function fmtDate(d) { return new Date(d).toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'}); }
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escJs(s) { return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+
+// ── Render: files ─────────────────────────────────────────────
+function renderFiles() {
+  const el = document.getElementById('files-list');
+  document.getElementById('file-count').textContent = state.files.length;
+  if (!state.files.length) {
+    el.innerHTML = '<div class="empty"><div class="empty-icon">🔍</div><p>No se encontraron archivos</p></div>';
+    return;
+  }
+  el.innerHTML = state.files.map(f => {
+    const thumbHtml = isImage(f.mimetype)
+      ? `<div class="file-thumb"><img src="/api/files/${f.id}/preview" alt="" loading="lazy" onerror="this.parentNode.innerHTML='${fileIcon(f.mimetype)}'"></div>`
+      : `<div class="file-thumb">${fileIcon(f.mimetype)}</div>`;
+    return `
+    <div class="file-card" onclick="openEdit(${f.id})">
+      ${thumbHtml}
+      <div class="file-info">
+        <div class="file-name">${escHtml(f.original_name)}</div>
+        <div class="file-meta">${fmtSize(f.size)} · ${fmtDate(f.uploaded_at)}</div>
+        ${f.folder_name ? `<div class="file-folder"><span>📁 ${escHtml(f.folder_name)}</span></div>` : ''}
+        ${f.tags.length ? `<div class="file-tags">${f.tags.map(t=>`<span class="ftag">#${escHtml(t)}</span>`).join('')}</div>` : ''}
+      </div>
+      <div class="file-actions" onclick="event.stopPropagation()">
+        <div class="btn-sm download" onclick="downloadFile(${f.id},'${escJs(f.original_name)}')">⬇️</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Render: chips/selects ─────────────────────────────────────
+function renderFolderChips() {
+  document.getElementById('folder-chips').innerHTML = [
+    `<div class="chip ${!state.filterFolder?'active':''}" onclick="setFolderFilter(null)">Todos</div>`,
+    `<div class="chip ${state.filterFolder==='none'?'active':''}" onclick="setFolderFilter('none')">Sin carpeta</div>`,
+    ...state.folders.map(f=>`<div class="chip ${state.filterFolder==f.id?'active':''}" onclick="setFolderFilter(${f.id})">${escHtml(f.name)}</div>`)
+  ].join('');
+}
+function renderTagChips() {
+  const el = document.getElementById('tag-chips');
+  el.innerHTML = state.tags.map(t =>
+    `<div class="chip tag-chip ${state.filterTag===t.name?'active':''}" onclick="setTagFilter('${escJs(t.name)}')">#${escHtml(t.name)} <small style="opacity:.6">${t.count}</small></div>`
+  ).join('');
+}
+function renderFolderSelects() {
+  const opts = '<option value="">Sin carpeta</option>' + state.folders.map(f=>`<option value="${f.id}">${escHtml(f.name)}</option>`).join('');
+  document.getElementById('upload-folder').innerHTML = opts;
+  document.getElementById('edit-folder').innerHTML = opts;
+}
+function renderFoldersList() {
+  const el = document.getElementById('folders-list');
+  if (!state.folders.length) { el.innerHTML = '<div class="empty"><div class="empty-icon">🗂️</div><p>No hay carpetas aún</p></div>'; return; }
+  el.innerHTML = state.folders.map(f => `
+    <div class="folder-card" onclick="openFolderDetail(${f.id})" style="cursor:pointer;">
+      <div class="folder-card-icon">📁</div>
+      <div class="folder-card-info"><div class="folder-card-name">${escHtml(f.name)}</div></div>
+      <div class="folder-card-actions" onclick="event.stopPropagation()">
+        <div class="btn-sm" style="font-size:16px" onclick="openRenameFolder(${f.id},'${escJs(f.name)}')">✏️</div>
+        <div class="btn-sm" style="font-size:16px" onclick="deleteFolder(${f.id})">🗑️</div>
+      </div>
+      <div style="color:var(--text3);font-size:20px;margin-left:4px;">›</div>
+    </div>`).join('');
+}
+
+// ── Filters ───────────────────────────────────────────────────
+function setFolderFilter(id) { state.filterFolder = id; renderFolderChips(); loadFiles(); }
+function setTagFilter(name) { state.filterTag = (state.filterTag===name) ? null : name; renderTagChips(); loadFiles(); }
+function debounceSearch() { state.searchQ = document.getElementById('search-input').value; clearTimeout(searchTimer); searchTimer = setTimeout(loadFiles, 300); }
+
+// ── Tags input ─────────────────────────────────────────────────
+function confirmTagInput(ctx) {
+  const input = document.getElementById(ctx+'-tag-input');
+  const val = input.value.trim();
+  if (val) { addTag(val, ctx); input.value=''; document.getElementById(ctx+'-tag-suggestions').innerHTML=''; }
+  input.focus();
+}
+function handleTagInput(e, ctx) {
+  // keydown: handle backspace and desktop shortcuts
+  const input = document.getElementById(ctx+'-tag-input');
+  if ((e.key==='Enter'||e.key===',') && input.value.trim()) {
+    e.preventDefault(); confirmTagInput(ctx);
+  } else if (e.key==='Backspace' && !input.value) {
+    const tags = ctx==='upload' ? state.uploadTags : state.editTags;
+    if (tags.length) removeTag(tags[tags.length-1], ctx);
+  }
+}
+function handleTagKeyup(e, ctx) {
+  // keyup fallback for mobile Enter (some Android keyboards only fire keyup)
+  if (e.key==='Enter' || e.keyCode===13) {
+    const input = document.getElementById(ctx+'-tag-input');
+    if (input.value.trim()) { e.preventDefault(); confirmTagInput(ctx); }
+  }
+}
+function handleTagOninput(e, ctx) {
+  // Detect comma typed on mobile (oninput fires reliably where onkeydown may not)
+  const input = document.getElementById(ctx+'-tag-input');
+  if (input.value.includes(',')) {
+    const parts = input.value.split(',');
+    // Last part stays in input (might be start of next tag)
+    parts.slice(0, -1).forEach(p => { if(p.trim()) addTag(p.trim(), ctx); });
+    input.value = parts[parts.length-1].replace(/^#+/,'');
+    document.getElementById(ctx+'-tag-suggestions').innerHTML='';
+  }
+  showTagSuggestions(ctx);
+}
+function addTag(name, ctx) {
+  name = name.replace(/^#+/,'').toLowerCase().trim();
+  if (!name) return;
+  const tags = ctx==='upload' ? state.uploadTags : state.editTags;
+  if (!tags.includes(name)) { tags.push(name); renderTagPills(ctx); }
+}
+function removeTag(name, ctx) {
+  if (ctx==='upload') state.uploadTags = state.uploadTags.filter(t=>t!==name);
+  else state.editTags = state.editTags.filter(t=>t!==name);
+  renderTagPills(ctx);
+}
+function renderTagPills(ctx) {
+  const tags = ctx==='upload' ? state.uploadTags : state.editTags;
+  const wrap = document.getElementById(ctx+'-tags-wrap');
+  const input = document.getElementById(ctx+'-tag-input');
+  wrap.querySelectorAll('.tag-pill').forEach(p=>p.remove());
+  tags.forEach(t => {
+    const pill = document.createElement('div'); pill.className='tag-pill';
+    pill.innerHTML = `#${escHtml(t)} <button onclick="removeTag('${escJs(t)}','${ctx}')">×</button>`;
+    wrap.insertBefore(pill, input);
+  });
+}
+function showTagSuggestions(ctx) {
+  const input = document.getElementById(ctx+'-tag-input');
+  const q = input.value.replace(/^#/,'').toLowerCase();
+  const el = document.getElementById(ctx+'-tag-suggestions');
+  if (!q) { el.innerHTML=''; return; }
+  el.innerHTML = state.tags.filter(t=>t.name.includes(q)).slice(0,6).map(t =>
+    `<span class="tag-suggestion" onclick="addTag('${escJs(t.name)}','${ctx}');document.getElementById('${ctx}-tag-input').value='';document.getElementById('${ctx}-tag-suggestions').innerHTML=''">#${escHtml(t.name)}</span>`
+  ).join('');
+}
+
+// ── Upload with previews ──────────────────────────────────────
+function handleFileSelect(files) {
+  state.selectedFiles = Array.from(files);
+  state.selectedFilePreviews = [];
+  const previewWrap = document.getElementById('upload-previews-wrap');
+  const previewGrid = document.getElementById('upload-previews');
+  const btn = document.getElementById('upload-btn');
+
+  if (!state.selectedFiles.length) {
+    previewWrap.style.display = 'none'; btn.disabled = true; return;
+  }
+
+  btn.disabled = false;
+  previewWrap.style.display = 'block';
+  previewGrid.innerHTML = '';
+
+  const dz = document.getElementById('drop-zone');
+  dz.innerHTML = `<div class="upload-zone-icon">✅</div><p>${state.selectedFiles.length} archivo(s) listo(s)</p><small>Toca para cambiar</small>`;
+
+  state.selectedFiles.forEach((file, i) => {
+    const item = document.createElement('div');
+    item.className = 'up-prev-item';
+    item.dataset.index = i;
+
+    if (isImage(file.type)) {
+      const reader = new FileReader();
+      reader.onload = e => {
+        state.selectedFilePreviews[i] = e.target.result;
+        item.innerHTML = `<img src="${e.target.result}" alt="${escHtml(file.name)}"><button class="up-prev-remove" onclick="removeSelectedFile(${i})">×</button>`;
+      };
+      reader.readAsDataURL(file);
+    } else {
+      item.innerHTML = `<div class="up-prev-file"><span class="up-prev-icon">${fileIcon(file.type)}</span><span class="up-prev-name">${escHtml(file.name)}</span></div><button class="up-prev-remove" onclick="removeSelectedFile(${i})">×</button>`;
+    }
+    previewGrid.appendChild(item);
+  });
+}
+
+function removeSelectedFile(index) {
+  state.selectedFiles.splice(index, 1);
+  state.selectedFilePreviews.splice(index, 1);
+  // Re-create FileList-like array and re-render
+  const dt = new DataTransfer();
+  state.selectedFiles.forEach(f => dt.items.add(f));
+  document.getElementById('file-input').files = dt.files;
+  handleFileSelect(dt.files);
+}
+
+async function uploadFiles() {
+  if (!state.selectedFiles.length) return;
+  // Flush any tag currently being typed (mobile users may not have confirmed it)
+  confirmTagInput('upload');
+  const btn = document.getElementById('upload-btn');
+  const prog = document.getElementById('upload-progress');
+  const fill = document.getElementById('progress-fill');
+  const label = document.getElementById('progress-label');
+  btn.disabled = true; prog.style.display = 'block';
+  const folderId = document.getElementById('upload-folder').value;
+  const tags = state.uploadTags.join(',');
+  let done = 0;
+  for (const file of state.selectedFiles) {
+    label.textContent = `Subiendo ${file.name}...`;
+    const fd = new FormData();
+    fd.append('file', file);
+    if (folderId) fd.append('folder_id', folderId);
+    fd.append('tags', tags);
+    try { await fetch('/api/files/upload', {method:'POST', body: fd}); }
+    catch(e) { showToast('Error: '+file.name, 'error'); }
+    done++;
+    fill.style.width = (done/state.selectedFiles.length*100)+'%';
+  }
+  label.textContent = '¡Listo!';
+  showToast(`${done} archivo(s) subido(s)`, 'success');
+  setTimeout(() => {
+    prog.style.display='none'; fill.style.width='0%';
+    state.selectedFiles=[]; state.selectedFilePreviews=[]; state.uploadTags=[];
+    renderTagPills('upload');
+    document.getElementById('file-input').value='';
+    document.getElementById('upload-previews-wrap').style.display='none';
+    document.getElementById('upload-previews').innerHTML='';
+    document.getElementById('drop-zone').innerHTML='<div class="upload-zone-icon">📤</div><p>Toca para seleccionar archivos</p><small>o arrastra y suelta aquí</small>';
+    btn.disabled=true;
+  }, 1500);
+  await Promise.all([loadFiles(), loadTags()]);
+}
+
+const dz = document.getElementById('drop-zone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag'));
+dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag'); handleFileSelect(e.dataTransfer.files); });
+
+// ── Edit modal ────────────────────────────────────────────────
+function openEdit(fileId) {
+  const f = state.files.find(x=>x.id===fileId);
+  if (!f) return;
+  state.editFileId = fileId;
+  state.editTags = [...f.tags];
+  document.getElementById('edit-name').value = f.original_name;
+  document.getElementById('edit-folder').value = f.folder_id || '';
+  renderTagPills('edit');
+
+  // Show image preview if applicable
+  const wrap = document.getElementById('edit-preview-wrap');
+  const img = document.getElementById('edit-preview-img');
+  if (isImage(f.mimetype)) {
+    img.src = `/api/files/${f.id}/preview`;
+    img.alt = f.original_name;
+    wrap.style.display = 'block';
+  } else {
+    wrap.style.display = 'none';
+    img.src = '';
+  }
+  openModal('edit');
+}
+
+async function saveEdit() {
+  // Flush any tag currently being typed
+  confirmTagInput('edit');
+  const name = document.getElementById('edit-name').value.trim();
+  const folderId = document.getElementById('edit-folder').value || null;
+  if (!name) return showToast('El nombre no puede estar vacío', 'error');
+  try {
+    await api(`/api/files/${state.editFileId}`, {
+      method:'PUT', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({original_name:name, folder_id: folderId?parseInt(folderId):null, tags:state.editTags})
+    });
+    closeModal('edit'); showToast('Guardado', 'success');
+    await Promise.all([loadFiles(), loadTags()]);
+  } catch(e) { showToast(e.message, 'error'); }
+}
+
+async function deleteFileFromModal() {
+  if (!confirm('¿Eliminar este archivo?')) return;
+  try {
+    await api(`/api/files/${state.editFileId}`, {method:'DELETE'});
+    closeModal('edit'); showToast('Archivo eliminado', 'success');
+    await Promise.all([loadFiles(), loadTags()]);
+  } catch(e) { showToast(e.message, 'error'); }
+}
+
+function downloadFile(id, name) { const a=document.createElement('a'); a.href=`/api/files/${id}/download`; a.download=name; a.click(); }
+function downloadCurrentFile() { const f=state.files.find(x=>x.id===state.editFileId); if(f) downloadFile(f.id, f.original_name); }
+
+// ── Lightbox ──────────────────────────────────────────────────
+function openLightbox() {
+  const f = state.files.find(x=>x.id===state.editFileId);
+  if (!f || !isImage(f.mimetype)) return;
+  document.getElementById('lightbox-img').src = `/api/files/${f.id}/preview`;
+  document.getElementById('lightbox-name').textContent = f.original_name;
+  document.getElementById('lightbox').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+// ── Folders ───────────────────────────────────────────────────
+function openCreateFolder() { state.editFolderId=null; document.getElementById('folder-modal-title').textContent='Nueva carpeta'; document.getElementById('folder-name-input').value=''; openModal('folder'); }
+function openRenameFolder(id, name) { state.editFolderId=id; document.getElementById('folder-modal-title').textContent='Renombrar carpeta'; document.getElementById('folder-name-input').value=name; openModal('folder'); }
+async function saveFolder() {
+  const name = document.getElementById('folder-name-input').value.trim();
+  if (!name) return showToast('Introduce un nombre', 'error');
+  try {
+    if (state.editFolderId) await api(`/api/folders/${state.editFolderId}`, {method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({name})});
+    else await api('/api/folders', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name})});
+    closeModal('folder'); showToast('Carpeta guardada', 'success'); await loadFolders();
+  } catch(e) { showToast(e.message, 'error'); }
+}
+async function deleteFolder(id) {
+  if (!confirm('¿Eliminar carpeta? Los archivos quedarán sin carpeta.')) return;
+  try {
+    await api(`/api/folders/${id}`, {method:'DELETE'});
+    showToast('Carpeta eliminada', 'success');
+    if (state.filterFolder==id) state.filterFolder=null;
+    await Promise.all([loadFolders(), loadFiles()]);
+  } catch(e) { showToast(e.message, 'error'); }
+}
+
+// ── Modal helpers ─────────────────────────────────────────────
+function openModal(name) { document.getElementById('modal-'+name).classList.add('open'); }
+function closeModal(name) { document.getElementById('modal-'+name).classList.remove('open'); }
+
+// ── Tab nav ───────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',['files','upload','folders'][i]===name));
+  document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id==='page-'+name));
+}
+
+// ── Toast ─────────────────────────────────────────────────────
+function showToast(msg, type='') {
+  const t=document.getElementById('toast'); t.textContent=msg;
+  t.className='toast show'+(type?' '+type:'');
+  setTimeout(()=>t.className='toast', 2500);
+}
+
+// ── View toggle (files tab) ───────────────────────────────────
+function toggleView() {
+  const grid = document.getElementById('files-list');
+  const btn = document.getElementById('view-toggle');
+  const isGrid = grid.classList.toggle('grid-view');
+  btn.textContent = isGrid ? '☰' : '⊞';
+  try { localStorage.setItem('filesView', isGrid ? 'grid' : 'list'); } catch(e){}
+}
+(function() {
+  try {
+    if (localStorage.getItem('filesView') === 'grid') {
+      document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('files-list').classList.add('grid-view');
+        document.getElementById('view-toggle').textContent = '☰';
+      });
+    }
+  } catch(e){}
+})();
+
+// ── Detail view (folder tab) ──────────────────────────────────
+let detailView = 'list';
+function setDetailView(mode) {
+  detailView = mode;
+  const el = document.getElementById('detail-files-list');
+  el.classList.remove('cols3','cols5');
+  if (mode !== 'list') el.classList.add(mode);
+  ['list','cols3','cols5'].forEach(m => {
+    document.getElementById('vbtn-'+m).classList.toggle('active', m === mode);
+  });
+  try { localStorage.setItem('detailView', mode); } catch(e){}
+}
+(function() {
+  try { detailView = localStorage.getItem('detailView') || 'list'; } catch(e){}
+})();
+
+// ── Folder detail ─────────────────────────────────────────────
+let detailFolderId = null;
+let detailFolderName = '';
+
+async function openFolderDetail(folderId) {
+  detailFolderId = folderId;
+  detailFolderName = folderId
+    ? (state.folders.find(f => f.id === folderId)?.name || '')
+    : 'Sin clasificar';
+
+  document.getElementById('detail-folder-name').textContent = detailFolderName;
+  document.getElementById('detail-rename-btn').style.display = folderId ? '' : 'none';
+  document.getElementById('detail-upload-btn').style.display = folderId ? '' : 'none';
+  document.getElementById('folders-main').style.display = 'none';
+  document.getElementById('folders-detail').classList.add('active');
+
+  // Restore saved view
+  setDetailView(detailView);
+
+  // Stats
+  if (folderId) {
+    try {
+      const stats = await api('/api/folders/' + folderId + '/stats');
+      document.getElementById('detail-file-count').textContent = stats.total;
+      document.getElementById('detail-folder-size').textContent = fmtSize(stats.size);
+    } catch(e) {}
+  }
+
+  await refreshDetailFiles();
+}
+
+async function refreshDetailFiles() {
+  const params = new URLSearchParams();
+  params.set('folder_id', detailFolderId != null ? detailFolderId : 'none');
+  const files = await api('/api/files?' + params);
+  const el = document.getElementById('detail-files-list');
+
+  if (detailFolderId == null) {
+    const total = files.reduce((a, f) => a + (f.size || 0), 0);
+    document.getElementById('detail-file-count').textContent = files.length;
+    document.getElementById('detail-folder-size').textContent = fmtSize(total);
+  }
+
+  if (!files.length) {
+    el.innerHTML = '<div class="empty"><div class="empty-icon">📭</div><p>Esta carpeta está vacía</p></div>';
+    return;
+  }
+
+  el.innerHTML = files.map(f => {
+    const thumbHtml = isImage(f.mimetype)
+      ? `<div class="file-thumb"><img src="/api/files/${f.id}/preview" alt="" loading="lazy" onerror="this.parentNode.innerHTML='${fileIcon(f.mimetype)}'"></div>`
+      : `<div class="file-thumb">${fileIcon(f.mimetype)}</div>`;
+    return `
+    <div class="file-card" onclick="openEdit(${f.id})">
+      ${thumbHtml}
+      <div class="file-info">
+        <div class="file-name">${escHtml(f.original_name)}</div>
+        <div class="file-meta">${fmtSize(f.size)} · ${fmtDate(f.uploaded_at)}</div>
+        ${f.tags.length ? `<div class="file-tags">${f.tags.map(t=>`<span class="ftag">#${escHtml(t)}</span>`).join('')}</div>` : ''}
+      </div>
+      <div class="file-actions" onclick="event.stopPropagation()">
+        <div class="btn-sm download" onclick="downloadFile(${f.id},'${escJs(f.original_name)}')">⬇️</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function closeFolderDetail() {
+  document.getElementById('folders-main').style.display = 'block';
+  document.getElementById('folders-detail').classList.remove('active');
+  detailFolderId = null;
+}
+
+function openRenameCurrentFolder() {
+  if (!detailFolderId) return;
+  openRenameFolder(detailFolderId, detailFolderName);
+}
+
+function goToUploadInFolder() {
+  switchTab('upload');
+  if (detailFolderId) document.getElementById('upload-folder').value = detailFolderId;
+}
+
+async function updateUnclassifiedCount() {
+  try {
+    const files = await api('/api/files?folder_id=none');
+    const el = document.getElementById('unclassified-count');
+    if (el) el.textContent = files.length + ' archivos';
+  } catch(e) {}
+}
+
+// ── Move file ─────────────────────────────────────────────────
+function openMoveModal() {
+  const f = state.files.find(x => x.id === state.editFileId)
+         || (detailFolderId !== undefined
+             ? {folder_id: detailFolderId}
+             : null);
+  const currentFolderId = f ? f.folder_id : null;
+
+  const items = [
+    { id: null, name: '📥 Sin clasificar' },
+    ...state.folders.map(fl => ({ id: fl.id, name: '📁 ' + fl.name }))
+  ];
+
+  document.getElementById('move-folder-list').innerHTML = items.map(item => `
+    <div class="move-folder-item ${item.id == currentFolderId ? 'current' : ''}"
+         onclick="moveFileTo(${item.id})">
+      ${escHtml(item.name)}
+      ${item.id == currentFolderId ? '<span style="margin-left:auto;font-size:11px;color:var(--text3)">actual</span>' : ''}
+    </div>
+  `).join('');
+
+  openModal('move');
+}
+
+async function moveFileTo(folderId) {
+  closeModal('move');
+  try {
+    await api('/api/files/' + state.editFileId, {
+      method: 'PUT',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ folder_id: folderId })
+    });
+    showToast('Archivo movido', 'success');
+    // Update local state immediately
+    const f = state.files.find(x => x.id === state.editFileId);
+    if (f) {
+      f.folder_id = folderId;
+      f.folder_name = folderId ? (state.folders.find(fl => fl.id === folderId)?.name || null) : null;
+    }
+    await Promise.all([loadFiles(), loadFolders()]);
+    // Refresh detail view if open
+    if (document.getElementById('folders-detail').classList.contains('active')) {
+      await refreshDetailFiles();
+    }
+    closeModal('edit');
+  } catch(e) { showToast(e.message, 'error'); }
+}
+
+init();
+</script>
+</body>
+</html>
