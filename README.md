@@ -31,6 +31,44 @@ No cloud, no third-party apps, no data leaving your home.
 
 ---
 
+## 📸 Screenshots
+
+### Server Starting
+
+<div align="center">
+
+<img src="./screenshots/Server-Starting.png" alt="Server Starting" width="500">
+
+_QR code appears on startup — scan from your phone to access the interface instantly_
+
+</div>
+
+### Interface Overview
+
+<div align="center">
+
+|                  Upload & Folders                   |                   Files Grid View                   |
+| :-------------------------------------------------: | :-------------------------------------------------: |
+| ![Upload Section](./screenshots/Upload-Section.png) | ![Files Grid](./screenshots/Files-Section-Grid.png) |
+
+|                  Files List View                  |                 Folders Organization                  |
+| :-----------------------------------------------: | :---------------------------------------------------: |
+| ![Files Section](./screenshots/Files-Section.png) | ![Folders Section](./screenshots/Folders-Section.png) |
+
+</div>
+
+### Navigation
+
+<div align="center">
+
+![Inside Folder](./screenshots/InsideFolder.png)
+
+_Browse into folders and organize your files with ease_
+
+</div>
+
+---
+
 ## 💻 Requirements
 
 - Python 3.8+
