@@ -420,7 +420,7 @@ if __name__ == '__main__':
     else:
         print("\n  (install 'qrcode' via pip to display the QR code here)")
 
-    print(f'\n✅ Vaultdrop is running')
+    print(f'\n✅ LocalFileHub is running')
     print(f'📱 Scan the QR or open: {url}')
     print(f'💻 From this PC: http://localhost:5000\n')
     app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)
