@@ -1,0 +1,8 @@
+flask>=3.0
+werkzeug>=3.0
+
+# Optional but recommended
+Pillow>=10.0          # Thumbnails WebP
+imagehash>=4.3        # Duplicate detection using perceptual hashing
+flask-limiter>=3.5    # Advanced rate limiting
+qrcode>=7.4           # QR at startup
