@@ -5,6 +5,7 @@ import shutil
 import hashlib
 import time
 import threading
+import subprocess
 from collections import defaultdict, OrderedDict
 from flask import Flask, request, jsonify, send_from_directory, send_file
 from werkzeug.utils import secure_filename
@@ -62,6 +63,10 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 IMAGE_MIMETYPES = {
     'image/jpeg', 'image/png', 'image/gif',
     'image/webp', 'image/bmp', 'image/tiff',
+}
+VIDEO_MIMETYPES = {
+    'video/mp4', 'video/webm', 'video/ogg', 'video/quicktime',
+    'video/x-msvideo', 'video/x-matroska', 'video/mpeg',
 }
 
 # ─── Disk helpers ─────────────────────────────────────────────────────────────
@@ -973,24 +978,51 @@ def preview_file(file_id):
     if not row:
         return jsonify({'error': 'Not found'}), 404
 
-    full_path  = file_disk_path(row['filename'], row['folder_name'])
-    full_mode  = request.args.get('full', '0') == '1'
-    is_image   = row['mimetype'] in IMAGE_MIMETYPES
+    full_path = file_disk_path(row['filename'], row['folder_name'])
+    full_mode = request.args.get('full', '0') == '1'
+    is_image  = row['mimetype'] in IMAGE_MIMETYPES
+    is_video  = row['mimetype'] in VIDEO_MIMETYPES
 
-    if is_image and not full_mode and PIL_AVAILABLE:
-        thumb_bytes = get_thumbnail_bytes(full_path, row['filename'])
-        if thumb_bytes:
-            response = send_file(
-                io.BytesIO(thumb_bytes),
-                mimetype='image/webp',
-                max_age=0,           # browser revalidates; server answers from RAM
-            )
-            response.headers['Cache-Control'] = 'private, max-age=3600'
-            response.headers['Vary'] = 'Accept'
-            return response
+    if not full_mode:
+        if is_image and PIL_AVAILABLE:
+            thumb_bytes = get_thumbnail_bytes(full_path, row['filename'])
+            if thumb_bytes:
+                response = send_file(
+                    io.BytesIO(thumb_bytes),
+                    mimetype='image/webp',
+                    max_age=0,
+                )
+                response.headers['Cache-Control'] = 'private, max-age=3600'
+                response.headers['Vary'] = 'Accept'
+                return response
+
+        if is_video:
+            for seek in ('1', '0'):
+                try:
+                    proc = subprocess.run(
+                        [
+                            'ffmpeg', '-loglevel', 'error',
+                            '-ss', seek, '-i', full_path,
+                            '-frames:v', '1',
+                            '-vf', f'scale={THUMB_SIZE[0]}:-2',
+                            '-f', 'image2pipe', '-vcodec', 'mjpeg', 'pipe:1',
+                        ],
+                        stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10,
+                    )
+                    if proc.returncode == 0 and proc.stdout:
+                        resp = send_file(io.BytesIO(proc.stdout), mimetype='image/jpeg')
+                        resp.headers['Cache-Control'] = 'private, max-age=3600'
+                        return resp
+                except Exception as e:
+                    print(f'[WARN] video thumb seek={seek} failed: {e}')
+            return jsonify({'error': 'thumbnail unavailable'}), 404
 
     directory = folder_disk_path(row['folder_name']) if row['folder_name'] else UPLOAD_FOLDER
-    return send_from_directory(directory, row['filename'], as_attachment=False)
+    return send_from_directory(
+        directory, row['filename'],
+        as_attachment=False,
+        mimetype=row['mimetype'] if is_video else None,
+    )
 
 
 @app.route('/api/thumbnails/cache-info', methods=['GET'])
