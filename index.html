@@ -1319,13 +1319,24 @@
         justify-content: center;
         cursor: pointer;
         z-index: 10;
-        transition: background 0.15s, opacity 0.15s;
+        transition:
+          background 0.15s,
+          opacity 0.15s;
         user-select: none;
       }
-      .lightbox-nav:active { background: rgba(255, 255, 255, 0.18); }
-      .lightbox-nav.hidden { opacity: 0; pointer-events: none; }
-      .lightbox-nav-prev { left: 10px; }
-      .lightbox-nav-next { right: 10px; }
+      .lightbox-nav:active {
+        background: rgba(255, 255, 255, 0.18);
+      }
+      .lightbox-nav.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+      .lightbox-nav-prev {
+        left: 10px;
+      }
+      .lightbox-nav-next {
+        right: 10px;
+      }
       .lightbox-counter {
         position: absolute;
         bottom: 52px;
@@ -1342,14 +1353,50 @@
         pointer-events: none;
       }
       /* Swipe transition animations */
-      .lightbox-img.swipe-out-left  { animation: swipeOutLeft  0.22s ease forwards; }
-      .lightbox-img.swipe-out-right { animation: swipeOutRight 0.22s ease forwards; }
-      .lightbox-img.swipe-in-left   { animation: swipeInLeft   0.22s ease forwards; }
-      .lightbox-img.swipe-in-right  { animation: swipeInRight  0.22s ease forwards; }
-      @keyframes swipeOutLeft  { to   { opacity: 0; transform: translateX(-60px); } }
-      @keyframes swipeOutRight { to   { opacity: 0; transform: translateX(60px);  } }
-      @keyframes swipeInLeft   { from { opacity: 0; transform: translateX(60px);  } to { opacity: 1; transform: translateX(0); } }
-      @keyframes swipeInRight  { from { opacity: 0; transform: translateX(-60px); } to { opacity: 1; transform: translateX(0); } }
+      .lightbox-img.swipe-out-left {
+        animation: swipeOutLeft 0.22s ease forwards;
+      }
+      .lightbox-img.swipe-out-right {
+        animation: swipeOutRight 0.22s ease forwards;
+      }
+      .lightbox-img.swipe-in-left {
+        animation: swipeInLeft 0.22s ease forwards;
+      }
+      .lightbox-img.swipe-in-right {
+        animation: swipeInRight 0.22s ease forwards;
+      }
+      @keyframes swipeOutLeft {
+        to {
+          opacity: 0;
+          transform: translateX(-60px);
+        }
+      }
+      @keyframes swipeOutRight {
+        to {
+          opacity: 0;
+          transform: translateX(60px);
+        }
+      }
+      @keyframes swipeInLeft {
+        from {
+          opacity: 0;
+          transform: translateX(60px);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
+      @keyframes swipeInRight {
+        from {
+          opacity: 0;
+          transform: translateX(-60px);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
 
       /* ── File viewer swipe navigation ── */
       .file-viewer-nav {
@@ -1368,13 +1415,24 @@
         justify-content: center;
         cursor: pointer;
         z-index: 10;
-        transition: background 0.15s, opacity 0.15s;
+        transition:
+          background 0.15s,
+          opacity 0.15s;
         user-select: none;
       }
-      .file-viewer-nav:active { background: rgba(255, 255, 255, 0.15); }
-      .file-viewer-nav.hidden { opacity: 0; pointer-events: none; }
-      .file-viewer-nav-prev { left: 6px; }
-      .file-viewer-nav-next { right: 6px; }
+      .file-viewer-nav:active {
+        background: rgba(255, 255, 255, 0.15);
+      }
+      .file-viewer-nav.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+      .file-viewer-nav-prev {
+        left: 6px;
+      }
+      .file-viewer-nav-next {
+        right: 6px;
+      }
 
       /* ── Tags input ── */
       .tags-input-row {
@@ -2331,12 +2389,16 @@
           class="file-viewer-nav file-viewer-nav-prev hidden"
           id="fv-nav-prev"
           onclick="navigateViewer(-1)"
-        >‹</div>
+        >
+          ‹
+        </div>
         <div
           class="file-viewer-nav file-viewer-nav-next hidden"
           id="fv-nav-next"
           onclick="navigateViewer(1)"
-        >›</div>
+        >
+          ›
+        </div>
       </div>
     </div>
 
@@ -2378,13 +2440,23 @@
       <div
         class="lightbox-nav lightbox-nav-prev hidden"
         id="lightbox-nav-prev"
-        onclick="event.stopPropagation(); navigateLightbox(-1);"
-      >‹</div>
+        onclick="
+          event.stopPropagation();
+          navigateLightbox(-1);
+        "
+      >
+        ‹
+      </div>
       <div
         class="lightbox-nav lightbox-nav-next hidden"
         id="lightbox-nav-next"
-        onclick="event.stopPropagation(); navigateLightbox(1);"
-      >›</div>
+        onclick="
+          event.stopPropagation();
+          navigateLightbox(1);
+        "
+      >
+        ›
+      </div>
       <div class="lightbox-counter" id="lightbox-counter"></div>
     </div>
 
@@ -2665,11 +2737,17 @@
       function appendFileCards(files) {
         const el = document.getElementById('files-list');
         const fragment = document.createDocumentFragment();
+        const toObserve = [];
         files.forEach((f) => {
           const card = buildFileCard(f);
           fragment.appendChild(card);
+          // Collect lazy imgs BEFORE inserting — observe AFTER insertion
+          const img = card.querySelector('img[data-src]');
+          if (img) toObserve.push(img);
         });
         el.appendChild(fragment);
+        // Elements are in the DOM now — IntersectionObserver can see them
+        toObserve.forEach((img) => imgObserver.observe(img));
       }
 
       function buildFileCard(f) {
@@ -2704,7 +2782,6 @@
             <div class="file-actions" onclick="event.stopPropagation()">
               <div class="btn-sm download" onclick="downloadFile(${f.id},'${escJs(f.original_name)}')">⬇️</div>
             </div>`;
-          imgObserver.observe(card.querySelector('img'));
         } else if (isVideo(f.mimetype)) {
           card.innerHTML = `
             ${checkMark}${dupBadge}
@@ -2720,7 +2797,6 @@
             <div class="file-actions" onclick="event.stopPropagation()">
               <div class="btn-sm download" onclick="downloadFile(${f.id},'${escJs(f.original_name)}')">⬇️</div>
             </div>`;
-          imgObserver.observe(card.querySelector('img'));
         } else {
           card.innerHTML = `
             ${checkMark}${dupBadge}
@@ -2961,7 +3037,8 @@
       function fmtSize(b) {
         if (b < 1024) return b + ' B';
         if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
-        return (b / 1048576).toFixed(1) + ' MB';
+        if (b < 1073741824) return (b / 1048576).toFixed(1) + ' MB';
+        return (b / 1073741824).toFixed(2) + ' GB';
       }
       function fmtDate(d) {
         return new Date(d).toLocaleDateString('en-GB', {
@@ -3450,41 +3527,61 @@
       // Returns the source file list for navigation depending on active context:
       // folder detail view → only files in that folder; global view → state.files
       function _navSourceFiles() {
-        const detailActive = document.getElementById('folders-detail')?.classList.contains('active');
+        const detailActive = document
+          .getElementById('folders-detail')
+          ?.classList.contains('active');
         if (detailActive) {
           const detailEl = document.getElementById('detail-files-list');
-          const ids = Array.from(detailEl.querySelectorAll('.file-card[data-id]'))
+          const ids = Array.from(
+            detailEl.querySelectorAll('.file-card[data-id]'),
+          )
             .map((c) => parseInt(c.dataset.id))
             .filter(Boolean);
-          return ids.map((id) => state.files.find((f) => f.id === id)).filter(Boolean);
+          return ids
+            .map((id) => state.files.find((f) => f.id === id))
+            .filter(Boolean);
         }
         return state.files;
       }
 
       function _visibleImageIds() {
-        return _navSourceFiles().filter((f) => isImage(f.mimetype)).map((f) => f.id);
+        return _navSourceFiles()
+          .filter((f) => isImage(f.mimetype))
+          .map((f) => f.id);
       }
 
       function _visibleViewerIds() {
         return _navSourceFiles()
-          .filter((f) => isPdf(f.mimetype) || isTxt(f.mimetype) || isVideo(f.mimetype))
+          .filter(
+            (f) =>
+              isPdf(f.mimetype) || isTxt(f.mimetype) || isVideo(f.mimetype),
+          )
           .map((f) => f.id);
       }
 
       function _updateLightboxNav(currentId) {
         const ids = _visibleImageIds();
         const idx = ids.indexOf(currentId);
-        document.getElementById('lightbox-nav-prev').classList.toggle('hidden', idx <= 0);
-        document.getElementById('lightbox-nav-next').classList.toggle('hidden', idx >= ids.length - 1);
+        document
+          .getElementById('lightbox-nav-prev')
+          .classList.toggle('hidden', idx <= 0);
+        document
+          .getElementById('lightbox-nav-next')
+          .classList.toggle('hidden', idx >= ids.length - 1);
         const counter = document.getElementById('lightbox-counter');
-        counter.textContent = ids.length > 1 ? `${idx + 1} / ${ids.length}` : '';
+        counter.textContent =
+          ids.length > 1 ? `${idx + 1} / ${ids.length}` : '';
       }
 
       function _updateViewerNav(currentId) {
         const ids = _visibleViewerIds();
         const idx = ids.indexOf(currentId);
-        document.getElementById('fv-nav-prev').classList.toggle('hidden', idx <= 0);
-        document.getElementById('fv-nav-next').classList.toggle('hidden', idx >= ids.length - 1);
+        document
+          .getElementById('fv-nav-prev')
+          .classList.toggle('hidden', idx <= 0);
+        document
+          .getElementById('fv-nav-next')
+          .classList.toggle('hidden', idx >= ids.length - 1);
       }
 
       // ── Swipe gesture state ────────────────────────────────────────────────
@@ -3494,34 +3591,52 @@
 
       function _attachSwipeToLightbox() {
         const lb = document.getElementById('lightbox');
-        lb.addEventListener('touchstart', (e) => {
-          _swipe.startX = e.touches[0].clientX;
-          _swipe.startY = e.touches[0].clientY;
-          _swipe.active = true;
-        }, { passive: true });
-        lb.addEventListener('touchend', (e) => {
-          if (!_swipe.active) return;
-          _swipe.active = false;
-          const dx = e.changedTouches[0].clientX - _swipe.startX;
-          const dy = Math.abs(e.changedTouches[0].clientY - _swipe.startY);
-          if (Math.abs(dx) >= SWIPE_MIN_X && dy <= SWIPE_MAX_Y) navigateLightbox(dx < 0 ? 1 : -1);
-        }, { passive: true });
+        lb.addEventListener(
+          'touchstart',
+          (e) => {
+            _swipe.startX = e.touches[0].clientX;
+            _swipe.startY = e.touches[0].clientY;
+            _swipe.active = true;
+          },
+          { passive: true },
+        );
+        lb.addEventListener(
+          'touchend',
+          (e) => {
+            if (!_swipe.active) return;
+            _swipe.active = false;
+            const dx = e.changedTouches[0].clientX - _swipe.startX;
+            const dy = Math.abs(e.changedTouches[0].clientY - _swipe.startY);
+            if (Math.abs(dx) >= SWIPE_MIN_X && dy <= SWIPE_MAX_Y)
+              navigateLightbox(dx < 0 ? 1 : -1);
+          },
+          { passive: true },
+        );
       }
 
       function _attachSwipeToViewer() {
         const fv = document.getElementById('file-viewer');
-        fv.addEventListener('touchstart', (e) => {
-          _swipe.startX = e.touches[0].clientX;
-          _swipe.startY = e.touches[0].clientY;
-          _swipe.active = true;
-        }, { passive: true });
-        fv.addEventListener('touchend', (e) => {
-          if (!_swipe.active) return;
-          _swipe.active = false;
-          const dx = e.changedTouches[0].clientX - _swipe.startX;
-          const dy = Math.abs(e.changedTouches[0].clientY - _swipe.startY);
-          if (Math.abs(dx) >= SWIPE_MIN_X && dy <= SWIPE_MAX_Y) navigateViewer(dx < 0 ? 1 : -1);
-        }, { passive: true });
+        fv.addEventListener(
+          'touchstart',
+          (e) => {
+            _swipe.startX = e.touches[0].clientX;
+            _swipe.startY = e.touches[0].clientY;
+            _swipe.active = true;
+          },
+          { passive: true },
+        );
+        fv.addEventListener(
+          'touchend',
+          (e) => {
+            if (!_swipe.active) return;
+            _swipe.active = false;
+            const dx = e.changedTouches[0].clientX - _swipe.startX;
+            const dy = Math.abs(e.changedTouches[0].clientY - _swipe.startY);
+            if (Math.abs(dx) >= SWIPE_MIN_X && dy <= SWIPE_MAX_Y)
+              navigateViewer(dx < 0 ? 1 : -1);
+          },
+          { passive: true },
+        );
       }
 
       function navigateLightbox(dir) {
@@ -3531,7 +3646,7 @@
         if (next < 0 || next >= ids.length) return;
         const fullImg = document.getElementById('lightbox-img');
         const outClass = dir > 0 ? 'swipe-out-left' : 'swipe-out-right';
-        const inClass  = dir > 0 ? 'swipe-in-left'  : 'swipe-in-right';
+        const inClass = dir > 0 ? 'swipe-in-left' : 'swipe-in-right';
         fullImg.classList.add(outClass);
         setTimeout(() => {
           fullImg.classList.remove(outClass);
@@ -3589,7 +3704,11 @@
           spinner.classList.add('hidden');
           if (animClass) {
             fullImg.classList.add(animClass);
-            fullImg.addEventListener('animationend', () => fullImg.classList.remove(animClass), { once: true });
+            fullImg.addEventListener(
+              'animationend',
+              () => fullImg.classList.remove(animClass),
+              { once: true },
+            );
           }
         };
         fullImg.addEventListener('load', onLoaded, { once: true });
@@ -3690,6 +3809,8 @@
           const video = document.createElement('video');
           video.controls = true;
           video.autoplay = false;
+          video.loop = true;
+          video.muted = true;
           video.playsInline = true;
           video.preload = 'metadata';
           video.addEventListener('touchstart', (e) => e.stopPropagation(), {
@@ -3700,7 +3821,20 @@
           });
           const source = document.createElement('source');
           source.src = url;
-          source.type = f.mimetype;
+          // Normalise non-standard mimetypes so browsers accept the <source>:
+          // video/quicktime → video/mp4  (Safari plays both; Chrome needs mp4)
+          // video/x-msvideo, video/x-matroska → omit type (let browser sniff)
+          const _mt = f.mimetype || '';
+          if (
+            _mt === 'video/mp4' ||
+            _mt === 'video/webm' ||
+            _mt === 'video/ogg'
+          ) {
+            source.type = _mt;
+          } else if (_mt === 'video/quicktime') {
+            source.type = 'video/mp4';
+          }
+          // For all other types leave source.type unset — browser will sniff
           video.appendChild(source);
           video.addEventListener(
             'loadedmetadata',
@@ -4081,13 +4215,15 @@
         detailImgObserver = _makeImgObserver(
           document.getElementById('page-folders'),
         );
+        const toObserveDetail = [];
         files.forEach((f) => {
           const card = buildFileCard(f);
           fragment.appendChild(card);
           const img = card.querySelector('img[data-src]');
-          if (img) detailImgObserver.observe(img);
+          if (img) toObserveDetail.push(img);
         });
         el.appendChild(fragment);
+        toObserveDetail.forEach((img) => detailImgObserver.observe(img));
 
         // Merge into state.files so openEdit() can find them
         files.forEach((f) => {
