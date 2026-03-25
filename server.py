@@ -435,7 +435,7 @@ def resolve_sort(field, direction):
 @app.route('/')
 def index():
     # Serve premium UI if the extension has installed it, otherwise base UI
-    premium_html = os.path.join(BASE_DIR, 'extensions', 'index.html')
+    premium_html = os.path.join(BASE_DIR, 'extensions', 'index_premium.html')
     if os.path.exists(premium_html):
         return send_file(premium_html)
     return send_from_directory(BASE_DIR, 'index.html')
