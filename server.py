@@ -477,6 +477,10 @@ def resolve_sort(field, direction):
 def index():
     return send_from_directory(BASE_DIR, 'index.html')
 
+@app.route('/api/health')
+def health():
+    return jsonify({'status': 'ok'})
+
 @app.route('/api/extensions/frontend')
 def get_frontend_extensions():
     """

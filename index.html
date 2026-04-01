@@ -1842,17 +1842,18 @@
       }
 
       @media (min-width: 1000px) {
+        /* Universal wrapper: centers and sets the width of ALL content on each page */
         .page {
           padding: 24px 32px;
-        }
-        /* Universal wrapper: centers and sets the width of ALL content on each page */
-        #page-files > *,
-        #page-folders > * {
           max-width: 1200px;
           width: 100%;
           margin-left: auto;
           margin-right: auto;
           box-sizing: border-box;
+        }
+
+        .page::-webkit-scrollbar {
+          display: none;
         }
 
         /* Cards in list view must NOT overflow horizontally */
@@ -1895,8 +1896,6 @@
         #selection-bar {
           padding-bottom: 10px;
         }
-      }
-      @media (min-width: 1000px) {
         /* Folder detail list view: 2 columns only when there's genuinely enough room */
         #detail-files-list:not(.cols3):not(.cols5) {
           display: grid;
@@ -1917,7 +1916,7 @@
             font-family: 'DM Mono', monospace;
           "
         >
-          🟢 local
+          <span id="server-status">🟢 local</span>
         </div>
       </header>
 
@@ -4512,6 +4511,36 @@
       }
 
       init();
+    </script>
+
+    <script>
+      // ── Server status indicator ──────────────────────────────────────────────
+      (function () {
+        const el = document.getElementById('server-status');
+        if (!el) return;
+
+        async function checkHealth() {
+          try {
+            const res = await fetch('/api/health', {
+              method: 'GET',
+              cache: 'no-store',
+              signal: AbortSignal.timeout(4000),
+            });
+            if (res.ok) {
+              el.textContent = '🟢 local';
+              el.style.color = '';
+            } else {
+              throw new Error('non-ok');
+            }
+          } catch {
+            el.textContent = '🔴 offline';
+            el.style.color = 'var(--red)';
+          }
+        }
+
+        checkHealth();
+        setInterval(checkHealth, 10_000);
+      })();
     </script>
   </body>
 </html>
