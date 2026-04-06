@@ -2194,6 +2194,12 @@
         <div class="sel-action-btn sel-all" onclick="selectAll()">
           ☑ Select all
         </div>
+        <div class="sel-action-btn favorite" onclick="batchFavorite(true)">
+          ⭐ Favorite
+        </div>
+        <div class="sel-action-btn unfavorite" onclick="batchFavorite(false)">
+          ☆ Unfavorite
+        </div>
         <div class="sel-action-btn move" onclick="openBatchMoveModal()">
           📂 Move
         </div>
@@ -2513,6 +2519,7 @@
         tags: [],
         filterFolder: null,
         filterTag: null,
+        filterFavorite: false,
         searchQ: '',
         sortField: 'uploaded_at',
         sortDir: 'desc',
@@ -2692,6 +2699,7 @@
           if (state.filterFolder === 'none') p.set('folder_id', 'none');
           else if (state.filterFolder) p.set('folder_id', state.filterFolder);
           if (state.filterTag) p.set('tag', state.filterTag);
+          if (state.filterFavorite) p.set('favorite', 'true');
 
           const data = await api('/api/files?' + p);
           const newFiles = data.files;
@@ -2738,6 +2746,20 @@
         toObserve.forEach((img) => imgObserver.observe(img));
       }
 
+      function updateFileCard(id) {
+        const file = state.files.find((f) => f.id === id);
+        const card = document.querySelector(`.file-card[data-id="${id}"]`);
+        if (!file || !card) return;
+        const favBtn = card.querySelector('.btn-sm.favorite');
+        if (favBtn) {
+          favBtn.textContent = file.is_favorite ? '⭐' : '☆';
+        }
+      }
+
+      function updateFileCards(ids) {
+        ids.forEach((id) => updateFileCard(id));
+      }
+
       function buildFileCard(f) {
         const card = document.createElement('div');
         card.className =
@@ -2768,6 +2790,7 @@
               ${folderHtml}${tagsHtml}
             </div>
             <div class="file-actions" onclick="event.stopPropagation()">
+              <div class="btn-sm favorite" onclick="toggleFavorite(${f.id})">${f.is_favorite ? '⭐' : '☆'}</div>
               <div class="btn-sm download" onclick="downloadFile(${f.id},'${escJs(f.original_name)}')">⬇️</div>
             </div>`;
         } else if (isVideo(f.mimetype)) {
@@ -2783,6 +2806,7 @@
               ${folderHtml}${tagsHtml}
             </div>
             <div class="file-actions" onclick="event.stopPropagation()">
+              <div class="btn-sm favorite" onclick="toggleFavorite(${f.id})">${f.is_favorite ? '⭐' : '☆'}</div>
               <div class="btn-sm download" onclick="downloadFile(${f.id},'${escJs(f.original_name)}')">⬇️</div>
             </div>`;
         } else {
@@ -2795,6 +2819,7 @@
               ${folderHtml}${tagsHtml}
             </div>
             <div class="file-actions" onclick="event.stopPropagation()">
+              <div class="btn-sm favorite" onclick="toggleFavorite(${f.id})">${f.is_favorite ? '⭐' : '☆'}</div>
               <div class="btn-sm download" onclick="downloadFile(${f.id},'${escJs(f.original_name)}')">⬇️</div>
             </div>`;
         }
@@ -3084,8 +3109,9 @@
       // ── Render chips / selects ─────────────────────────────────────────────
       function renderFolderChips() {
         document.getElementById('folder-chips').innerHTML = [
-          `<div class="chip ${!state.filterFolder ? 'active' : ''}" onclick="setFolderFilter(null)">All</div>`,
+          `<div class="chip ${!state.filterFolder && !state.filterFavorite ? 'active' : ''}" onclick="setAllFilter()">All</div>`,
           `<div class="chip ${state.filterFolder === 'none' ? 'active' : ''}" onclick="setFolderFilter('none')">Without folder</div>`,
+          `<div class="chip ${state.filterFavorite ? 'active' : ''}" onclick="setFavoriteFilter(true)">Favorites</div>`,
           ...state.folders.map(
             (f) =>
               `<div class="chip ${state.filterFolder == f.id ? 'active' : ''}" onclick="setFolderFilter(${f.id})">${escHtml(f.name)}</div>`,
@@ -3135,12 +3161,25 @@
       // ── Filters ────────────────────────────────────────────────────────────
       function setFolderFilter(id) {
         state.filterFolder = id;
+        state.filterFavorite = false;
         renderFolderChips();
         resetAndLoadFiles();
       }
       function setTagFilter(name) {
         state.filterTag = state.filterTag === name ? null : name;
         renderTagChips();
+        resetAndLoadFiles();
+      }
+      function setFavoriteFilter(fav) {
+        state.filterFavorite = fav;
+        state.filterFolder = fav ? null : state.filterFolder;
+        renderFolderChips();
+        resetAndLoadFiles();
+      }
+      function setAllFilter() {
+        state.filterFolder = null;
+        state.filterFavorite = false;
+        renderFolderChips();
         resetAndLoadFiles();
       }
       function debounceSearch() {
@@ -3504,6 +3543,47 @@
         a.href = `/api/files/${id}/download`;
         a.download = name;
         a.click();
+      }
+      async function toggleFavorite(id) {
+        try {
+          const res = await api(`/api/files/${id}/favorite`, {
+            method: 'PATCH',
+          });
+          const file = state.files.find((f) => f.id === id);
+          if (file) {
+            file.is_favorite = res.is_favorite;
+            updateFileCard(id);
+            if (state.filterFavorite && !res.is_favorite) {
+              state.files = state.files.filter((f) => f.id !== id);
+              document.querySelector(`.file-card[data-id="${id}"]`)?.remove();
+            }
+          }
+        } catch (e) {
+          console.error('toggleFavorite failed', e);
+          showToast(`Failed to toggle favorite: ${e.message}`, 'error');
+        }
+      }
+      async function batchFavorite(fav) {
+        const ids = Array.from(state.selectedIds);
+        if (!ids.length) return;
+        try {
+          await api('/api/files/batch', 'PUT', { ids, favorite: fav });
+          for (const id of ids) {
+            const file = state.files.find((f) => f.id === id);
+            if (file) {
+              file.is_favorite = fav;
+              if (state.filterFavorite && !fav) {
+                state.files = state.files.filter((f) => f.id !== id);
+                document.querySelector(`.file-card[data-id="${id}"]`)?.remove();
+              } else {
+                updateFileCard(id);
+              }
+            }
+          }
+          showToast(`Favorited ${ids.length} files`, 'success');
+        } catch (e) {
+          showToast('Failed to batch favorite', 'error');
+        }
       }
       function downloadCurrentFile() {
         const f = state.files.find((x) => x.id === state.editFileId);

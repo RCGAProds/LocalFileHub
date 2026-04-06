@@ -394,6 +394,8 @@ def init_db():
         conn.execute("ALTER TABLE files ADD COLUMN sha256 TEXT")
     if 'phash' not in existing_cols:
         conn.execute("ALTER TABLE files ADD COLUMN phash TEXT")
+    if "is_favorite" not in existing_cols:
+        conn.execute("ALTER TABLE files ADD COLUMN is_favorite INTEGER DEFAULT 0")
     conn.commit()
 
     # ── Step 3: indices on migrated columns ───────────────────────────────────
@@ -453,6 +455,7 @@ def file_to_dict(row, tags=None):
         'phash':         row['phash']  if 'phash'  in row.keys() else None,
         'uploaded_at':   row['uploaded_at'],
         'tags':          tags if tags is not None else [],
+        "is_favorite": row["is_favorite"] if "is_favorite" in row.keys() else False,
     }
 
 # ── Sort helper ───────────────────────────────────────────────────────────────
@@ -591,7 +594,8 @@ def download_folder_zip(folder_id):
 
 # ─── Files API ────────────────────────────────────────────────────────────────
 
-def build_files_query(search, folder_id, tag):
+
+def build_files_query(search, folder_id, tag, favorite):
     conditions, params = [], []
 
     if search:
@@ -621,6 +625,10 @@ def build_files_query(search, folder_id, tag):
         params.append(tag)
 
     where = ('WHERE ' + ' AND '.join(conditions)) if conditions else ''
+    if favorite:
+        conditions.append("f.is_favorite = ?")
+        params.append(1 if favorite.lower() == "true" else 0)
+
     return where, params
 
 
@@ -629,6 +637,7 @@ def get_files():
     search    = request.args.get('q', '').strip()
     folder_id = request.args.get('folder_id', '')
     tag       = request.args.get('tag', '').strip()
+    favorite = request.args.get("favorite", "").strip()
 
     sort_field       = request.args.get('sort', 'uploaded_at')
     sort_dir         = request.args.get('dir', 'desc')
@@ -645,6 +654,7 @@ def get_files():
 
     conn           = get_db()
     where, params  = build_files_query(search, folder_id, tag)
+    where, params = build_files_query(search, folder_id, tag, favorite)
 
     total = conn.execute(
         f'SELECT COUNT(*) as cnt FROM files f {where}', params
@@ -894,6 +904,22 @@ def update_file(file_id):
 
 
 @app.route('/api/files/batch', methods=['PUT'])
+@app.route("/api/files/<int:file_id>/favorite", methods=["PATCH", "POST"])
+def toggle_favorite(file_id):
+    conn = get_db()
+    row = conn.execute(
+        "SELECT is_favorite FROM files WHERE id = ?", (file_id,)
+    ).fetchone()
+    if not row:
+        conn.close()
+        return jsonify({"error": "File not found"}), 404
+    new_fav = 0 if row["is_favorite"] else 1
+    conn.execute("UPDATE files SET is_favorite = ? WHERE id = ?", (new_fav, file_id))
+    conn.commit()
+    conn.close()
+    return jsonify({"is_favorite": bool(new_fav)})
+
+
 def batch_update_files():
     """
     Apply the same change to multiple files at once.
@@ -902,6 +928,7 @@ def batch_update_files():
       - folder_id           move all to this folder (null = unclassified)
       - add_tags            list of tag names to add
       - remove_tags         list of tag names to remove
+      - favorite            true/false to set favorite status
     """
     data = request.json or {}
     ids  = data.get('ids', [])
@@ -948,6 +975,14 @@ def batch_update_files():
                 f'DELETE FROM file_tags WHERE tag_id = ? AND file_id IN ({placeholders})',
                 [tag_row['id']] + ids
             )
+
+    if "favorite" in data:
+        favorite_value = 1 if data["favorite"] else 0
+        placeholders = ",".join("?" * len(ids))
+        conn.execute(
+            f"UPDATE files SET is_favorite = ? WHERE id IN ({placeholders})",
+            [favorite_value] + ids,
+        )
 
     conn.commit()
     conn.execute('DELETE FROM tags WHERE id NOT IN (SELECT tag_id FROM file_tags)')
