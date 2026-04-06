@@ -1009,6 +1009,7 @@
       .lightbox.open {
         opacity: 1;
         pointer-events: all;
+        overscroll-behavior: none;
       }
       /* The real image — hidden until loaded */
       .lightbox-img {
@@ -1365,6 +1366,18 @@
       .lightbox-img.swipe-in-right {
         animation: swipeInRight 0.22s ease forwards;
       }
+      .lightbox-img.swipe-out-up {
+        animation: swipeOutUp 0.22s ease forwards;
+      }
+      .lightbox-img.swipe-out-down {
+        animation: swipeOutDown 0.22s ease forwards;
+      }
+      .lightbox-img.swipe-in-up {
+        animation: swipeInUp 0.22s ease forwards;
+      }
+      .lightbox-img.swipe-in-down {
+        animation: swipeInDown 0.22s ease forwards;
+      }
       @keyframes swipeOutLeft {
         to {
           opacity: 0;
@@ -1395,6 +1408,39 @@
         to {
           opacity: 1;
           transform: translateX(0);
+        }
+      }
+      /* Vertical swipe animations */
+      @keyframes swipeOutUp {
+        to {
+          opacity: 0;
+          transform: translateY(-60px);
+        }
+      }
+      @keyframes swipeOutDown {
+        to {
+          opacity: 0;
+          transform: translateY(60px);
+        }
+      }
+      @keyframes swipeInUp {
+        from {
+          opacity: 0;
+          transform: translateY(60px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      @keyframes swipeInDown {
+        from {
+          opacity: 0;
+          transform: translateY(-60px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
         }
       }
 
@@ -2482,7 +2528,7 @@
         id="lightbox-nav-prev"
         onclick="
           event.stopPropagation();
-          navigateLightbox(-1);
+          navigateLightbox(-1, 'x');
         "
       >
         ‹
@@ -2492,7 +2538,7 @@
         id="lightbox-nav-next"
         onclick="
           event.stopPropagation();
-          navigateLightbox(1);
+          navigateLightbox(1, 'x');
         "
       >
         ›
@@ -3659,6 +3705,7 @@
 
       function _attachSwipeToLightbox() {
         const lb = document.getElementById('lightbox');
+
         lb.addEventListener(
           'touchstart',
           (e) => {
@@ -3668,17 +3715,61 @@
           },
           { passive: true },
         );
+
+        // Block pull-to-refresh only on vertical gestures while lightbox is open.
+        // We track the dominant axis after the first few pixels of movement so we
+        // can call preventDefault() selectively — blocking everything would cancel
+        // touchend on some mobile browsers and break swipe detection.
+        lb.addEventListener(
+          'touchmove',
+          (e) => {
+            if (!lb.classList.contains('open')) return;
+            const dx = Math.abs(e.touches[0].clientX - _swipe.startX);
+            const dy = Math.abs(e.touches[0].clientY - _swipe.startY);
+            // Once we have enough movement to determine direction, block vertical scroll
+            if (dy > dx && dy > 8) e.preventDefault();
+          },
+          { passive: false },
+        );
+
         lb.addEventListener(
           'touchend',
           (e) => {
             if (!_swipe.active) return;
             _swipe.active = false;
             const dx = e.changedTouches[0].clientX - _swipe.startX;
-            const dy = Math.abs(e.changedTouches[0].clientY - _swipe.startY);
-            if (Math.abs(dx) >= SWIPE_MIN_X && dy <= SWIPE_MAX_Y)
-              navigateLightbox(dx < 0 ? 1 : -1);
+            const dy = e.changedTouches[0].clientY - _swipe.startY;
+            const adx = Math.abs(dx);
+            const ady = Math.abs(dy);
+            if (adx >= SWIPE_MIN_X && ady <= SWIPE_MAX_Y) {
+              // Horizontal swipe: left = next, right = previous
+              navigateLightbox(dx < 0 ? 1 : -1, 'x');
+            } else if (ady >= SWIPE_MIN_X && adx <= SWIPE_MAX_Y) {
+              // Vertical swipe (social-style): down = next, up = previous
+              navigateLightbox(dy > 0 ? -1 : 1, 'y');
+            }
           },
           { passive: true },
+        );
+
+        // ── Mouse-wheel / trackpad scroll navigation ──────────────────────────
+        // Scroll down (deltaY > 0) → next image; scroll up (deltaY < 0) → previous.
+        // Debounced to avoid rapid-fire triggers from trackpad inertia.
+        let _wheelTimer = null;
+        const WHEEL_DEBOUNCE_MS = 250;
+        lb.addEventListener(
+          'wheel',
+          (e) => {
+            if (!lb.classList.contains('open')) return;
+            e.preventDefault();
+            if (_wheelTimer) return;
+            const dir = e.deltaY > 0 ? 1 : -1;
+            navigateLightbox(dir, 'y');
+            _wheelTimer = setTimeout(() => {
+              _wheelTimer = null;
+            }, WHEEL_DEBOUNCE_MS);
+          },
+          { passive: false },
         );
       }
 
@@ -3707,19 +3798,39 @@
         );
       }
 
-      function navigateLightbox(dir) {
+      function navigateLightbox(dir, axis) {
         const ids = _visibleImageIds();
         const idx = ids.indexOf(state.editFileId);
         const next = idx + dir;
         if (next < 0 || next >= ids.length) return;
         const fullImg = document.getElementById('lightbox-img');
-        const outClass = dir > 0 ? 'swipe-out-left' : 'swipe-out-right';
-        const inClass = dir > 0 ? 'swipe-in-left' : 'swipe-in-right';
-        fullImg.classList.add(outClass);
-        setTimeout(() => {
-          fullImg.classList.remove(outClass);
+        let outClass, inClass;
+        if (axis === 'y') {
+          outClass = dir > 0 ? 'swipe-out-up' : 'swipe-out-down';
+          inClass = dir > 0 ? 'swipe-in-up' : 'swipe-in-down';
+        } else {
+          outClass = dir > 0 ? 'swipe-out-left' : 'swipe-out-right';
+          inClass = dir > 0 ? 'swipe-in-left' : 'swipe-in-right';
+        }
+
+        const isVisible = fullImg.classList.contains('loaded');
+        if (isVisible) {
+          fullImg.classList.add(outClass);
+          let done = false;
+          const proceed = () => {
+            if (done) return;
+            done = true;
+            fullImg.classList.remove(outClass);
+            openLightbox(ids[next], inClass);
+          };
+          fullImg.addEventListener('animationend', proceed, { once: true });
+          // Fallback: if animationend never fires (hidden element, etc.)
+          setTimeout(proceed, 280);
+        } else {
           openLightbox(ids[next], inClass);
-        }, 200);
+        }
+        console.log('navigateLightbox: ' + dir + ' ' + axis);
+        console.log('inClass = ' + inClass + ' & ' + 'outClass = ' + outClass);
       }
 
       function navigateViewer(dir) {
@@ -3747,8 +3858,19 @@
         );
         const spinner = document.getElementById('lightbox-spinner');
 
-        // Reset previous state
-        fullImg.classList.remove('loaded');
+        // Reset previous state — strip ALL swipe animation classes so no
+        // leftover horizontal class can override the incoming vertical one.
+        const _allSwipeClasses = [
+          'swipe-out-left',
+          'swipe-out-right',
+          'swipe-in-left',
+          'swipe-in-right',
+          'swipe-out-up',
+          'swipe-out-down',
+          'swipe-in-up',
+          'swipe-in-down',
+        ];
+        fullImg.classList.remove('loaded', ..._allSwipeClasses);
         fullImg.src = '';
         placeholder.classList.remove('hidden');
         spinner.classList.remove('hidden');
@@ -3767,16 +3889,25 @@
         // Assign src directly to the visible <img> so a cached image resolves
         // in the same synchronous tick — no artificial delay via new Image().
         const onLoaded = () => {
+          // Guard: src='' triggers a load event with naturalWidth=0 — ignore it.
+          if (!fullImg.naturalWidth) return;
+          fullImg.classList.remove(..._allSwipeClasses);
           fullImg.classList.add('loaded');
           placeholder.classList.add('hidden');
           spinner.classList.add('hidden');
           if (animClass) {
-            fullImg.classList.add(animClass);
-            fullImg.addEventListener(
-              'animationend',
-              () => fullImg.classList.remove(animClass),
-              { once: true },
-            );
+            // Double rAF ensures the browser commits the cleared state before
+            // applying the in-animation, so cached images animate correctly.
+            requestAnimationFrame(() => {
+              requestAnimationFrame(() => {
+                fullImg.classList.add(animClass);
+                fullImg.addEventListener(
+                  'animationend',
+                  () => fullImg.classList.remove(animClass),
+                  { once: true },
+                );
+              });
+            });
           }
         };
         fullImg.addEventListener('load', onLoaded, { once: true });
@@ -4561,13 +4692,19 @@
           const lb = document.getElementById('lightbox');
           const fv = document.getElementById('file-viewer');
           if (lb.classList.contains('open')) {
-            if (e.key === 'ArrowRight') navigateLightbox(1);
-            else if (e.key === 'ArrowLeft') navigateLightbox(-1);
+            if (e.key === 'ArrowRight') navigateLightbox(1, 'x');
+            else if (e.key === 'ArrowLeft') navigateLightbox(-1, 'x');
+            else if (e.key === 'ArrowDown') navigateLightbox(1, 'y');
+            else if (e.key === 'ArrowUp') navigateLightbox(-1, 'y');
             else if (e.key === 'Escape') closeLightbox();
+            console.log('lightbox: ' + e.key);
           } else if (fv.classList.contains('open')) {
             if (e.key === 'ArrowRight') navigateViewer(1);
             else if (e.key === 'ArrowLeft') navigateViewer(-1);
+            else if (e.key === 'ArrowDown') navigateViewer(1);
+            else if (e.key === 'ArrowUp') navigateViewer(-1);
             else if (e.key === 'Escape') closeFileViewer();
+            console.log('file-viewer: ' + e.key);
           }
         });
 
